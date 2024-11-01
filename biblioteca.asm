@@ -1,184 +1,224 @@
 .data
-    filename:      .asciiz "livros.txt"  # Nome do arquivo para armazenar os livros
-    menu_prompt:   .asciiz "\nMenu:\n1. Adicionar Livro\n2. Listar Livros\n3. Excluir Livro\n4. Sair\nEscolha uma opção: "
-    add_prompt:    .asciiz "Digite o nome do livro (até 20 caracteres): "
-    list_prompt:   .asciiz "Lista de Livros:\n"
-    remove_prompt: .asciiz "Digite o nome do livro a ser removido: "
-    book_buffer:   .space 22              # Buffer para armazenar o nome do livro + nova linha
-    temp_buffer:   .space 100             # Buffer temporário para leitura e escrita
+    prompt_choice:  .asciiz "Escolha uma opÃ§Ã£o (1 - Adicionar, 2 - Listar, 3 - Remover, 0 - Sair): "
+    prompt_add:     .asciiz "Digite o tÃ­tulo do livro: "
+    prompt_author:  .asciiz "Digite o autor do livro: "
+    prompt_list:    .asciiz "Listando livros:\n"
+    prompt_remove:  .asciiz "Digite o tÃ­tulo do livro a remover: "
+    buffer:         .space 128
+    title_buffer:   .space 64
+    author_buffer:  .space 64
+    filename:       .asciiz "livros.txt"
+    newline:        .asciiz "\n"
 
 .text
 .globl main
 
 main:
-    li $v0, 4                      # Imprimir menu
-    la $a0, menu_prompt            # Carregar endereço da mensagem do menu
+    # Menu de opÃ§Ãµes
+menu:
+    li $v0, 4                       
+    la $a0, prompt_choice
     syscall
 
-    li $v0, 5                      # Ler opção do usuário
+    li $v0, 5                       
     syscall
-    move $t1, $v0                  # Armazena a opção em $t1
 
-    # Verifica a opção escolhida
-    beq $t1, 1, add_book           # Adicionar livro
-    beq $t1, 2, list_books         # Listar livros
-    beq $t1, 3, remove_book        # Excluir livro
-    beq $t1, 4, exit_program       # Sair
+    # Verifica se a entrada Ã© vÃ¡lida
+    bltz $v0, menu                  
+    bgt $v0, 3, menu               
 
-    j main                         # Volta ao menu
+    move $t0, $v0                   
 
-# Adicionar livro
+    beq $t0, 0, exit                
+    beq $t0, 1, add_book           
+    beq $t0, 2, list_books          
+    beq $t0, 3, remove_book        
+    j menu                          
+
 add_book:
-    li $v0, 4                      # Imprimir mensagem para adicionar livro
-    la $a0, add_prompt             # Carregar endereço da mensagem de adicionar livro
+    li $v0, 4                      
+    la $a0, prompt_add
     syscall
 
-    li $v0, 8                      # Ler o nome do livro
-    la $a0, book_buffer            # Buffer onde o livro será armazenado
-    li $a1, 22                     # Limitar a 21 caracteres (20 + \n)
+    li $v0, 8                      
+    la $a0, title_buffer
+    li $a1, 64
     syscall
 
-    # Abrir o arquivo para adicionar o livro
-    li $v0, 13                     # Syscall para abrir arquivo
-    la $a0, filename               # Nome do arquivo
-    li $a1, 1                      # Abrir para escrita
-    li $a2, 0                      # Modo de leitura
-    syscall
-    move $t0, $v0                  # File descriptor
-
-    # Escrever o livro no arquivo
-    li $v0, 15                     # Syscall para escrever em arquivo
-    move $a0, $t0                  # File descriptor
-    la $a1, book_buffer            # Buffer com o nome do livro
-    li $a2, 22                     # Número de bytes a serem escritos
+    li $v0, 4                       
+    la $a0, prompt_author
     syscall
 
-    # Fechar o arquivo
-    li $v0, 16                     # Syscall para fechar arquivo
-    move $a0, $t0                  # File descriptor
+    li $v0, 8                      
+    la $a0, author_buffer
+    li $a1, 64
     syscall
 
-    j main                         # Volta ao menu
+    # Adicionar ao arquivo
+    li $v0, 13                      
+    la $a0, filename
+    li $a1, 1                       
+    li $a2, 0                      
+    syscall
 
-# Listar livros
+    move $t1, $v0                   
+
+    # Escrever tÃ­tulo e autor
+    li $v0, 14                     
+    la $a0, title_buffer           
+    li $a1, 64                      
+    syscall
+
+    # Escrever separador
+    li $v0, 14                      
+    la $a0, newline                 
+    li $a1, 1                       
+    syscall
+
+    li $v0, 14                    
+    la $a0, author_buffer          
+    li $a1, 64                     
+    syscall
+
+    # Escrever nova linha
+    li $v0, 14                     
+    la $a0, newline                
+    li $a1, 1                      
+    syscall
+
+    li $v0, 16                     
+    move $a0, $t1
+    syscall
+
+    j menu
+
 list_books:
-    li $v0, 4                      # Imprimir mensagem de listagem
-    la $a0, list_prompt            # Carregar endereço da mensagem de listagem
+    li $v0, 4                       
+    la $a0, prompt_list
     syscall
 
-    # Abrir o arquivo para leitura
-    li $v0, 13                     # Syscall para abrir arquivo
-    la $a0, filename               # Nome do arquivo
-    li $a1, 0                      # Abrir para leitura
-    li $a2, 0                      # Modo de leitura
+    li $v0, 13                    
+    la $a0, filename
+    li $a1, 0                       
+    li $a2, 0                      
     syscall
-    move $t0, $v0                  # File descriptor
 
-    # Ler e imprimir o conteúdo do arquivo
+    move $t1, $v0                  
+
 read_loop:
-    li $v0, 14                     # Syscall para ler do arquivo
-    move $a0, $t0                  # File descriptor
-    la $a1, temp_buffer            # Buffer onde os dados lidos serão armazenados
-    li $a2, 100                    # Tamanho do buffer
+    li $v0, 15                     
+    la $a0, buffer
+    li $a1, 128                    
     syscall
 
-    # Verificar se a leitura foi bem-sucedida
-    beqz $v0, end_read             # Se não leu nada, sair do loop
+    move $t2, $v0                  
 
-    li $v0, 4                      # Imprimir o livro lido
-    la $a0, temp_buffer            # Buffer com o nome do livro
+    # Se nÃ£o leu nada, sair
+    beqz $t2, close_list
+
+    # Imprimir conteÃºdo lido
+    li $v0, 4                       
+    la $a0, buffer
+    li $a1, $t2                     
     syscall
 
-    j read_loop                    # Ler o próximo livro
-
-end_read:
-    # Fechar o arquivo
-    li $v0, 16                     # Syscall para fechar arquivo
-    move $a0, $t0                  # File descriptor
+    # Imprimir nova linha
+    li $v0, 4                       
+    la $a0, newline                
+    li $a1, 1                       
     syscall
 
-    j main                         # Volta ao menu
+    j read_loop                    
 
-# Excluir livro
+close_list:
+    li $v0, 16                      
+    move $a0, $t1
+    syscall
+
+    j menu
+
 remove_book:
-    li $v0, 4                      # Imprimir mensagem para remoção
-    la $a0, remove_prompt          # Carregar endereço da mensagem de remoção
+    li $v0, 4                      
+    la $a0, prompt_remove
     syscall
 
-    li $v0, 8                      # Ler o nome do livro a ser removido
-    la $a0, book_buffer            # Buffer onde o livro será armazenado
-    li $a1, 22                     # Limitar a 21 caracteres (20 + \n)
+    li $v0, 8                       
+    la $a0, title_buffer
+    li $a1, 64
     syscall
 
-    # Abrir o arquivo para leitura
-    li $v0, 13                     # Syscall para abrir arquivo
-    la $a0, filename               # Nome do arquivo
-    li $a1, 0                      # Abrir para leitura
-    li $a2, 0                      # Modo de leitura
+    # Criar novo arquivo temporÃ¡rio
+    li $v0, 13                      
+    la $a0, "temp.txt"
+    li $a1, 8                      
+    li $a2, 0                      
     syscall
-    move $t0, $v0                  # File descriptor
 
-    # Criar um arquivo temporário para salvar os livros que não serão removidos
-    li $v0, 13                     # Syscall para abrir arquivo
-    la $a0, "temp.txt"             # Nome do arquivo temporário
-    li $a1, 1                      # Abrir para escrita
-    li $a2, 0                      # Modo de leitura
+    move $t2, $v0                   
+
+    # Abrir o arquivo original para leitura
+    li $v0, 13                      
+    la $a0, filename
+    li $a1, 0                      
+    li $a2, 0                      
     syscall
-    move $t1, $v0                  # File descriptor do arquivo temporário
 
-    # Ler e escrever livros que não devem ser removidos
+    move $t1, $v0                  
+
 read_remove_loop:
-    li $v0, 14                     # Syscall para ler do arquivo
-    move $a0, $t0                  # File descriptor
-    la $a1, temp_buffer            # Buffer onde os dados lidos serão armazenados
-    li $a2, 100                    # Tamanho do buffer
+    li $v0, 15                      
+    la $a0, buffer
+    li $a1, 128                     
     syscall
 
-    # Verificar se a leitura foi bem-sucedida
-    beqz $v0, end_remove           # Se não leu nada, sair do loop
+    move $t3, $v0                   
 
-    # Comparar o livro lido com o livro a ser removido
-    li $t2, 0                      # Índice para comparar
+    # Se nÃ£o leu nada, fechar arquivos
+    beqz $t3, close_remove
+
+    # Comparar tÃ­tulo
+    li $t4, 0                       
 compare_loop:
-    lb $t3, temp_buffer($t2)      # Carregar o caractere
-    lb $t4, book_buffer($t2)      # Carregar o caractere do livro a ser removido
-    beqz $t3, write_book           # Se chegar ao final do buffer, escrever
-    beq $t3, $t4, skip_write       # Se forem iguais, pular a escrita
+    lb $t5, title_buffer($t4)      
+    lb $t6, buffer($t4)            
 
-    addi $t2, $t2, 1               # Próximo caractere
-    j compare_loop                 # Continuar comparação
+    beqz $t5, write_line            
 
-skip_write:
-    j read_remove_loop             # Pular a escrita do livro a ser removido
+    # Verifica se a linha atual contÃ©m o tÃ­tulo a ser removido
+    beq $t5, $t6, compare_loop     
 
-write_book:
-    # Escrever no arquivo temporário
-    li $v0, 15                     # Syscall para escrever em arquivo
-    move $a0, $t1                  # File descriptor do arquivo temporário
-    la $a1, temp_buffer            # Buffer com o nome do livro
-    li $a2, 100                    # Número de bytes a serem escritos
+    # Se o tÃ­tulo nÃ£o for igual, escrever no arquivo temporÃ¡rio
+    li $v0, 14                     
+    la $a0, buffer
+    li $a1, 128                    
     syscall
 
-    j read_remove_loop             # Ler o próximo livro
-
-end_remove:
-    # Fechar os arquivos
-    li $v0, 16                     # Syscall para fechar arquivo
-    move $a0, $t0                  # File descriptor
-    syscall
-    li $v0, 16                     # Syscall para fechar arquivo
-    move $a0, $t1                  # File descriptor do arquivo temporário
+write_line:
+    # Escrever nova linha
+    li $v0, 14                     
+    la $a0, newline                 
+    li $a1, 1                     
     syscall
 
-    # Substituir o arquivo original pelo temporário
-    li $v0, 8                      # Syscall para renomear arquivo
-    la $a0, "temp.txt"             # Nome do arquivo temporário
-    la $a1, filename                # Nome do arquivo original
+    j read_remove_loop            
+
+close_remove:
+    li $v0, 16                    
+    move $a0, $t1
     syscall
 
-    j main                         # Volta ao menu
+    li $v0, 16                     
+    move $a0, $t2
+    syscall
 
-# Sair do programa
-exit_program:
-    li $v0, 10                     # Syscall para sair
+    # Substituir arquivo original pelo temporÃ¡rio
+    li $v0, 15                    
+    la $a0, "temp.txt"
+    la $a1, filename
+    syscall
+
+    j menu
+
+exit:
+    li $v0, 10                     
     syscall
